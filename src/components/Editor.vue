@@ -49,11 +49,12 @@ export default {
         title: "",
         salary: "",
         key: ""
-      }
+      },
+      employees: []
     };
   },
   created() {
-    events.$on("launchEditor", (employee) => {
+    events.$on("launchEditor", (employee,employees) => {
       if (employee) {
         if (employee.id) this.employee.id = employee.id;
         if (employee.name) this.employee.name = employee.name;
@@ -61,6 +62,7 @@ export default {
         if (employee.salary) this.employee.salary = employee.salary;
         if (employee.key) this.employee.key = employee.key;
       }
+      this.employees = employees
       this.editorActive = true;
       events.$nextTick(() => this.$refs.employeeName.focus());
     });
@@ -84,7 +86,7 @@ export default {
       this.employee.title = "";
       this.employee.salary = "";
       this.employee.key = "";
-      this.errors = [];
+      this.errors = []; 
     },
     validateInput(employee) {
       let errors = [];
@@ -96,18 +98,23 @@ export default {
         errors.push("Name is Required");
       if (employee.name && employee.name.length && employee.name.length > stringLimit)
         errors.push("Name is Longer Than " + stringLimit + " Characters");
+        
+      let duplicateNames = this.employees.find(item => {
+        return (item.name == employee.name && employee.id != item.id);
+      });
+      if(duplicateNames)
+        errors.push("Employee name " + employee.name + " already exists");
 
       if (!employee.title || !employee.title.trim())
         errors.push("Title is Required");
-      if (
-        employee.title &&
-        employee.title.length &&
-        employee.title.length > stringLimit
-      )
+      if (employee.title && employee.title.length && employee.title.length > stringLimit)
         errors.push("Title is Longer Than " + stringLimit + " Characters");
 
       if (!employee.salary)
         errors.push("Salary is Required");
+      let regex  = /^[1-9]\d*(((,\d{3}){1})?(\.\d{0,2})?)$/;
+      if (!regex.test(employee.salary))
+        errors.push("Salary must be positive currency");
 
       if (!errors.length) return false;
       return errors;

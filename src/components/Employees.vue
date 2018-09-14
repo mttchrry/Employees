@@ -6,6 +6,9 @@
                     <h1>Employees</h1>
                 </div>
             </div>
+            <div class="alert alert-warning" v-if="error">
+                Can't load data, check firebase config settings.
+            </div>
             <div class="row employeeResults">
                 <div class="col" v-if="employees.length">
                     <table v-if="employees.length">
@@ -17,23 +20,26 @@
                         </tr>
                         <tr v-for="employee in employees" :key="employee.id">
                             <td class="modification">
-                                <a href="#" class="badge badge-success" v-on:click.prevent="launchEditor(employee)">edit</a>
+                                <a href="#" class="badge badge-success" v-on:click.prevent="launchEditor(employee, employees)">edit</a>
                                 <a href="#" class="badge badge-danger" v-on:click.prevent="deleteEmployee(employee)">delete</a>
                             </td>
-                            <td><a href="#" v-on:click.prevent="launchEditor(employee)">{{employee.name}}</a></td>
+                            <td><a href="#" v-on:click.prevent="launchEditor(employee, employees)">{{employee.name}}</a></td>
                             <td>{{employee.title}}</td>
                             <td>{{employee.salary}}</td>
                             
                         </tr>
                     </table>
                 </div>
-                <div class="alert alert-warning" v-if="!employees.length">
+                <div class="alert alert-warning" v-if="loading">
+                    Loading employees.
+                </div>
+                <div class="alert alert-warning" v-if="!employees.length && !loading && !error">
                     No Employees.
                 </div>
             </div>
             <div class="row">
                 <div class="col">
-                    <button class="btn btn-primary" v-on:click="launchEditor()">Register Employee</button>
+                    <button class="btn btn-primary" v-on:click="launchEditor({}, employees)">Register Employee</button>
                 </div>
             </div>
         </div>
@@ -56,9 +62,7 @@ let configParams = {
 };
 
 let app = Firebase.initializeApp(configParams);
-console.log(app);
 let db = app.database();
-console.log(db);
 var employeesRef = db.ref("/employees/");
 
 export default {
@@ -66,20 +70,33 @@ export default {
   data() {
     return {
       error: false,
-      employees: []
+      employees: [],
+      duplicateNames: false,
+      loading: true
     };
-  },
+  }, 
   created() {
+    var connectedRef = db.ref(".info/connected");
+    setTimeout(()=>{connectedRef.on("value", snapshot => {
+      this.loading = false;
+      if(snapshot.val() === true){
+        this.error = false;
+      } else {
+        this.error = true;
+      }
+    })}, 2000);
+   
     employeesRef.on("value", snapshot => {
+      this.loading = false;
       this.employees = [];
+      if(!snapshot.val()){
+        this.error = true;
+      }
       snapshot.forEach(childSnapshot => {
-        console.log(childSnapshot.val());
         var item = childSnapshot.val();
         item.key = childSnapshot.key;
         this.employees.push(item);
       });
-      console.log(this.employees);
-      console.log(snapshot.key);
     });
 
     events.$on("saveEdits", employee => {
@@ -104,8 +121,8 @@ export default {
     deleteEmployee(employee) {
       employeesRef.child(employee.key).remove();
     },
-    launchEditor(data) {
-      events.$emit("launchEditor", data);
+    launchEditor(data, employees) {
+      events.$emit("launchEditor", data, employees);
     },
     getNextEmployeeId() {
       let nextEmployeeId = 1;
